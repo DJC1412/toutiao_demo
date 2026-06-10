@@ -260,7 +260,6 @@ class VideoFlowProvider extends ChangeNotifier {
       _shownOriginalIds.add(original.id);
     }
 
-    await Future.delayed(const Duration(milliseconds: 500));
     _items.addAll(nextPage);
     _isLoading = false;
     notifyListeners();

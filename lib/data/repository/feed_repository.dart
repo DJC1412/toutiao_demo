@@ -195,7 +195,6 @@ class FeedRepository {
     required int page,
     int pageSize = 5,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 500));
     final start = page * pageSize;
     if (start >= _centralPool.length) return [];
     final end = (start + pageSize).clamp(0, _centralPool.length);
@@ -210,8 +209,6 @@ class FeedRepository {
     required int page,
     int pageSize = 5,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-
     final pool = List<FeedItem>.from(_centralPool);
     pool.shuffle(_random);
 
@@ -250,7 +247,6 @@ class FeedRepository {
   // ═══════════════════════════════════════════════════════
 
   Future<List<FeedItem>> searchFeed(String keyword) async {
-    await Future.delayed(const Duration(milliseconds: 300));
     final lower = keyword.trim().toLowerCase();
     if (lower.isEmpty) return [];
 

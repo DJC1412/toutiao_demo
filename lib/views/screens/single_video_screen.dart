@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import '../../data/models/feed_item.dart';
+import 'fullscreen_video_page.dart';
 import '../widgets/interaction_buttons.dart';
 
 class SingleVideoScreen extends StatefulWidget {
@@ -20,6 +22,10 @@ class _SingleVideoScreenState extends State<SingleVideoScreen> {
   double _dragValue = 0.0;
   bool _showControls = true;
   late String _selectedQuality;
+  OverlayEntry? _fullscreenEntry;
+
+  bool get _isHorizontal =>
+      _isInitialized && _controller!.value.aspectRatio > 1.0;
 
   @override
   void initState() {
@@ -30,6 +36,8 @@ class _SingleVideoScreenState extends State<SingleVideoScreen> {
 
   @override
   void dispose() {
+    _fullscreenEntry?.remove();
+    _fullscreenEntry = null;
     _controller?.dispose();
     super.dispose();
   }
@@ -263,6 +271,10 @@ class _SingleVideoScreenState extends State<SingleVideoScreen> {
                                 fontSize: 11)),
                         const SizedBox(width: 8),
                         _buildQualityChip(),
+                        if (_isHorizontal && !widget.item.isVerticalVideo) ...[
+                          const SizedBox(width: 8),
+                          _buildFullscreenBtn(),
+                        ],
                       ],
                     ),
                   ),
@@ -279,6 +291,56 @@ class _SingleVideoScreenState extends State<SingleVideoScreen> {
                       CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openFullscreen() {
+    if (_fullscreenEntry != null || _controller == null || !_isInitialized) return;
+    if (widget.item.isVerticalVideo) return;
+    final overlay = Overlay.of(context);
+    _fullscreenEntry = OverlayEntry(
+      builder: (_) => Material(
+        type: MaterialType.transparency,
+        child: FullscreenVideoPage(
+          item: widget.item,
+          controller: _controller!,
+          onExit: _closeFullscreen,
+          initialQuality: _selectedQuality,
+          onQualityChanged: (q) => setState(() => _selectedQuality = q),
+        ),
+      ),
+    );
+    overlay.insert(_fullscreenEntry!);
+  }
+
+  Future<void> _closeFullscreen() async {
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    await Future.delayed(const Duration(milliseconds: 200));
+    _fullscreenEntry?.remove();
+    _fullscreenEntry = null;
+  }
+
+  Widget _buildFullscreenBtn() {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _openFullscreen,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 0.5),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.fullscreen, color: Colors.white, size: 14),
+            SizedBox(width: 4),
+            Text('全屏',
+                style: TextStyle(color: Colors.white, fontSize: 11)),
           ],
         ),
       ),

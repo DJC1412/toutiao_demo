@@ -18,7 +18,8 @@
       "Bash(\"D:/FFmpeg/ffmpeg-2026-06-08-git-6028720d70-full_build/bin/ffprobe.exe\" -v error -show_entries stream=has_b_frames,refs,display_aspect_ratio \"C:/Users/Lenovo/Desktop/claude/demo/data/videos/BV1EpccznEyu.mp4\")",
       "Bash(git tag *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(flutter build *)"
     ]
   }
 }
