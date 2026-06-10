@@ -80,6 +80,8 @@ class VideoFlowProvider extends ChangeNotifier {
   // ── 页面切换与预加载调度 ──
   void onPageChanged(int index) {
     if (_currentPageIndex == index) return;
+    // 先暂停上一个活跃视频（防止旧 Widget 被 dispose 后漏停）
+    pauseActive();
     _currentPageIndex = index;
     _updateWindow(index);
     notifyListeners();

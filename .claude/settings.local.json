@@ -19,7 +19,10 @@
       "Bash(git tag *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(flutter build *)"
+      "Bash(flutter build *)",
+      "Bash(flutter devices *)",
+      "Bash(adb devices *)",
+      "Bash(flutter install *)"
     ]
   }
 }

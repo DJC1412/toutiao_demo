@@ -1,24 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/search_provider.dart';
-import '../../providers/video_flow_provider.dart';
 import '../../data/models/feed_item.dart';
 import 'single_video_screen.dart';
+import 'single_image_screen.dart';
 
-/// 搜索结果页（视频列表，点击进入单独播放页）
+/// 搜索结果页（视频/图文，点击进入单独播放页）
 class SearchResultScreen extends StatelessWidget {
   const SearchResultScreen({super.key});
 
   void _onTapResult(BuildContext context, FeedItem item) {
-    if (item.isVideo) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => SingleVideoScreen(item: item)),
-      );
-    } else {
-      context.read<VideoFlowProvider>().requestJumpToItem(item.id);
-      Navigator.popUntil(context, ModalRoute.withName('/'));
-    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => item.isVideo
+            ? SingleVideoScreen(item: item)
+            : SingleImageScreen(item: item),
+      ),
+    );
   }
 
   @override

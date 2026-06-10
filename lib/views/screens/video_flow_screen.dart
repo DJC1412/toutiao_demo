@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/video_flow_provider.dart';
@@ -65,8 +66,10 @@ class _VideoFlowScreenState extends State<VideoFlowScreen>
     _lastConsumedJump = targetIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _pageController != null && _pageController!.hasClients) {
+        final p = context.read<VideoFlowProvider>();
         _pageController!.jumpToPage(targetIndex);
-        context.read<VideoFlowProvider>().consumePendingJump();
+        p.consumePendingJump();
+        _onPageOrLoad(targetIndex, p);
       }
     });
   }
@@ -85,38 +88,36 @@ class _VideoFlowScreenState extends State<VideoFlowScreen>
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          NotificationListener<ScrollNotification>(
+          NotificationListener<UserScrollNotification>(
             onNotification: (n) {
-              if (n is ScrollStartNotification && n.dragDetails != null) {
+              if (_isAnimating) return true;
+              if (n.direction != ScrollDirection.idle) {
                 _dragStartPage = _pageController!.page!;
-              } else if (n is ScrollEndNotification) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (!mounted || !_pageController!.hasClients) return;
-                  final p = context.read<VideoFlowProvider>();
-                  final current = _pageController!.page!;
-                  final maxPage = (_pageController!.position.maxScrollExtent /
-                      _pageController!.position.viewportDimension)
-                      .round();
-                  final start = _dragStartPage.round();
-                  int target;
-                  if (current > _dragStartPage + 0.01) {
-                    target = (start + 1).clamp(0, maxPage);
-                  } else if (current < _dragStartPage - 0.01) {
-                    target = (start - 1).clamp(0, maxPage);
-                  } else {
-                    target = start;
+              } else {
+                _isAnimating = true;
+                final current = _pageController!.page!;
+                final maxPage = (_pageController!.position.maxScrollExtent /
+                    _pageController!.position.viewportDimension)
+                    .round();
+                final start = _dragStartPage.round();
+                int target;
+                if (current > _dragStartPage + 0.01) {
+                  target = (start + 1).clamp(0, maxPage);
+                } else if (current < _dragStartPage - 0.01) {
+                  target = (start - 1).clamp(0, maxPage);
+                } else {
+                  target = start;
+                }
+                final p = context.read<VideoFlowProvider>();
+                _pageController!
+                    .animateToPage(target,
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOut)
+                    .then((_) {
+                  if (mounted) {
+                    _isAnimating = false;
+                    _onPageOrLoad(target, p);
                   }
-                  _isAnimating = true;
-                  _pageController!
-                      .animateToPage(target,
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut)
-                      .then((_) {
-                    if (mounted) {
-                      _isAnimating = false;
-                      _onPageOrLoad(target, p);
-                    }
-                  });
                 });
               }
               return false;
@@ -126,11 +127,7 @@ class _VideoFlowScreenState extends State<VideoFlowScreen>
               controller: _pageController,
               itemCount: items.length,
               pageSnapping: false,
-              onPageChanged: (index) {
-                if (!_isAnimating) {
-                  _onPageOrLoad(index, provider);
-                }
-              },
+              physics: const ClampingScrollPhysics(),
               itemBuilder: (context, index) {
                 final item = items[index];
                 final isActive = index == provider.currentPageIndex;
