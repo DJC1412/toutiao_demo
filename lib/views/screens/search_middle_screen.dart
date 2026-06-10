@@ -35,7 +35,7 @@ class _SearchMiddleScreenState extends State<SearchMiddleScreen> {
     final trimmed = query.trim();
     if (trimmed.isEmpty) return;
     final provider = context.read<SearchProvider>();
-    provider.search(trimmed);
+    provider.search(trimmed); // 异步权重搜索，结果通过 notifyListeners 更新
     Navigator.pushNamed(context, '/result');
   }
 

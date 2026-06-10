@@ -2,7 +2,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:video_player/video_player.dart';
 import '../data/models/feed_item.dart';
-import '../data/datasource/mock_data_center.dart';
+import '../data/repository/feed_repository.dart';
 
 /// 单一播放器缓存条目
 class _PlayerEntry {
@@ -20,14 +20,22 @@ class _PlayerEntry {
 /// 【性能红线】池上限 = 3 个 VideoPlayerController（Prev / Current / Next），
 /// 超出窗口的实例立即 dispose 回收内存。
 class VideoFlowProvider extends ChangeNotifier {
-  final MockDataCenter _dataCenter = MockDataCenter();
+  final FeedRepository _repo = FeedRepository.instance;
+
+  // ── 分页状态 ──
+  final List<FeedItem> _items = [];
+  final Set<String> _shownOriginalIds = {};
+  bool _isLoading = false;
+  bool _hasMore = true;
+
+  List<FeedItem> get items => List.unmodifiable(_items);
+  int get itemCount => _items.length;
+  bool get isLoading => _isLoading;
+  bool get hasMore => _hasMore;
 
   // ── 播放器复用池 ──
   static const int _maxPoolSize = 3;
   final Map<String, _PlayerEntry> _pool = {};
-
-  List<FeedItem> get items => _dataCenter.getAllItems();
-  int get itemCount => items.length;
 
   int _currentPageIndex = 0;
   int get currentPageIndex => _currentPageIndex;
@@ -53,7 +61,10 @@ class VideoFlowProvider extends ChangeNotifier {
   int? get pendingJumpIndex => _pendingJumpIndex;
 
   void requestJumpToItem(String itemId) {
-    final idx = _dataCenter.indexOfItem(itemId);
+    // 洗牌后的 ID 带 _ts{timestamp}_{index} 后缀，用 startsWith 模糊匹配原始 ID
+    final idx = _items.indexWhere(
+      (item) => item.id == itemId || item.id.startsWith('${itemId}_ts'),
+    );
     if (idx >= 0) {
       _pendingJumpIndex = idx;
       notifyListeners();
@@ -76,52 +87,44 @@ class VideoFlowProvider extends ChangeNotifier {
 
   /// 滑动窗口：始终维护当前页附近的至多 3 个视频控制器
   void _updateWindow(int centerIndex) {
-    final allItems = _dataCenter.getAllItems();
+    if (_items.isEmpty) return;
 
-    // 收集所有视频项的索引
     final videoIndices = <int>[];
-    for (int i = 0; i < allItems.length; i++) {
-      if (allItems[i].isVideo) videoIndices.add(i);
+    for (int i = 0; i < _items.length; i++) {
+      if (_items[i].isVideo) videoIndices.add(i);
     }
     if (videoIndices.isEmpty) return;
 
-    // 按距离中心页的远近排序，取最近的 3 个
     videoIndices.sort((a, b) => (a - centerIndex).abs().compareTo((b - centerIndex).abs()));
     final window = videoIndices.take(_maxPoolSize).toSet();
 
-    // 回收窗口外的控制器
     for (final id in _pool.keys.toList()) {
-      final idx = _dataCenter.indexOfItem(id);
+      final idx = _items.indexWhere((item) => item.id == id);
       if (!window.contains(idx)) {
         final entry = _pool.remove(id)!;
         entry.controller.dispose();
-        developer.log('🗑️  [Pool] 回收实例: $id (${allItems[idx].title})',
+        developer.log('🗑️  [Pool] 回收实例: $id (${_items[idx].title})',
             name: 'PlayerPool');
       }
     }
 
-    // 为窗口内的视频创建并预加载控制器
     for (final idx in window) {
-      final item = allItems[idx];
+      final item = _items[idx];
       if (!_pool.containsKey(item.id) && item.videoUrl != null) {
         _preloadItem(item);
       }
     }
 
-    // 更新当前激活视频
-    final currentItem = allItems[centerIndex];
+    final currentItem = _items[centerIndex];
     if (currentItem.isVideo) {
       _activeVideoId = currentItem.id;
     } else {
-      // 图文页：激活最近的视频
-      _activeVideoId = window.isNotEmpty
-          ? allItems[window.first].id
-          : null;
+      _activeVideoId = null;
     }
 
     developer.log(
         '📍 [Pool] 滑窗更新 | center=$centerIndex | 池内=${_pool.length} | '
-        '窗口=${window.map((i) => allItems[i].id).toList()} | active=$_activeVideoId',
+        '窗口=${window.map((i) => _items[i].id).toList()} | active=$_activeVideoId',
         name: 'PlayerPool');
   }
 
@@ -131,10 +134,13 @@ class VideoFlowProvider extends ChangeNotifier {
     developer.log('⏳ [Preload] 开始预加载: $id — "${item.title}" | url=${item.videoUrl}',
         name: 'PlayerPool');
 
-    final controller = VideoPlayerController.networkUrl(
-      Uri.parse(item.videoUrl!),
-      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
-    );
+    final url = item.videoUrl!;
+    final controller = url.startsWith('assets/')
+        ? VideoPlayerController.asset(url)
+        : VideoPlayerController.networkUrl(
+            Uri.parse(url),
+            videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+          );
 
     final entry = _PlayerEntry(controller);
     _pool[id] = entry;
@@ -190,9 +196,74 @@ class VideoFlowProvider extends ChangeNotifier {
     });
   }
 
-  /// 初始化首页窗口（VideoFlowScreen initState 时调用）
-  void initWindow() {
+  /// 提取原始 ID（去掉时间戳后缀）
+  String _originalId(String id) => id.contains('_ts') ? id.split('_ts').first : id;
+
+  /// 初始化首页 → 洗牌全量池，记录已展示 ID
+  Future<void> initWindow() async {
+    if (_items.isNotEmpty) return;
+    _isLoading = true;
+    notifyListeners();
+
+    final page = await _repo.fetchRecommendFeeds(page: 0);
+    _items.addAll(page);
+    for (final item in page) {
+      _shownOriginalIds.add(_originalId(item.id));
+    }
+    _isLoading = false;
+    _hasMore = true;
+
     _updateWindow(_currentPageIndex);
+    notifyListeners();
+  }
+
+  /// 翻页：从未展示的原始数据中随机抽取，集显不重复
+  Future<void> loadNextPage() async {
+    if (_isLoading) return;
+    _isLoading = true;
+    notifyListeners();
+
+    final allItems = _repo.getAllItems();
+    // 过滤掉已展示过的
+    var remaining = allItems.where((it) => !_shownOriginalIds.contains(it.id)).toList();
+    // 全部展示完了 → 重置，从头开始
+    if (remaining.isEmpty) {
+      _shownOriginalIds.clear();
+      remaining = List<FeedItem>.from(allItems);
+    }
+
+    remaining.shuffle();
+    final batch = remaining.take(5).toList();
+
+    // 注入唯一 ID
+    final ts = DateTime.now().microsecondsSinceEpoch;
+    final nextPage = <FeedItem>[];
+    for (int i = 0; i < batch.length; i++) {
+      final original = batch[i];
+      nextPage.add(FeedItem(
+        id: '${original.id}_ts${ts}_$i',
+        title: original.title,
+        description: original.description,
+        coverUrl: original.coverUrl,
+        videoUrl: original.videoUrl,
+        type: original.type,
+        orientation: original.orientation,
+        quality: original.quality,
+        aiTag: original.aiTag,
+        relatedSearchKeyword: original.relatedSearchKeyword,
+        imageUrls: original.imageUrls,
+        author: original.author,
+        commentCount: original.commentCount,
+        likeCount: original.likeCount,
+        shareCount: original.shareCount,
+      ));
+      _shownOriginalIds.add(original.id);
+    }
+
+    await Future.delayed(const Duration(milliseconds: 500));
+    _items.addAll(nextPage);
+    _isLoading = false;
+    notifyListeners();
   }
 
   // ── 播控操作 ──

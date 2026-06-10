@@ -1,11 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/models/feed_item.dart';
-import '../data/datasource/mock_data_center.dart';
+import '../data/repository/feed_repository.dart';
 
 /// 管理搜索历史（SharedPreferences）、检索词触发、结果过滤状态
 class SearchProvider extends ChangeNotifier {
-  final MockDataCenter _dataCenter = MockDataCenter();
+  final FeedRepository _repo = FeedRepository.instance;
 
   List<String> _searchHistory = [];
   List<FeedItem> _searchResults = [];
@@ -56,13 +56,13 @@ class SearchProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 执行模糊检索（title + author），仅返回视频，同时记入历史
-  void search(String query) {
+  /// 执行权重评分检索（FeedRepository 实现评分排序），仅返回视频，同时记入历史
+  Future<void> search(String query) async {
     _currentQuery = query.trim();
     if (_currentQuery.isEmpty) {
       _searchResults = [];
     } else {
-      _searchResults = _dataCenter.search(_currentQuery);
+      _searchResults = await _repo.searchFeed(_currentQuery);
       addToHistory(_currentQuery);
     }
     notifyListeners();

@@ -14,12 +14,16 @@ class FullscreenVideoPage extends StatefulWidget {
   final FeedItem item;
   final VideoPlayerController controller;
   final VoidCallback? onExit;
+  final String initialQuality;
+  final ValueChanged<String>? onQualityChanged;
 
   const FullscreenVideoPage({
     super.key,
     required this.item,
     required this.controller,
     this.onExit,
+    this.initialQuality = '1080p',
+    this.onQualityChanged,
   });
 
   @override
@@ -32,7 +36,10 @@ class _FullscreenVideoPageState extends State<FullscreenVideoPage> {
   double _sliderValue = 0.0;
   bool _showControls = true;
   Timer? _hideTimer;
-  bool _isExiting = false; // 退出过渡中
+  bool _isExiting = false;
+  late String _selectedQuality;
+  bool _showQualityPanel = false;
+  final GlobalKey _qualityKey = GlobalKey();
 
   VideoPlayerController get _ctrl => widget.controller;
 
@@ -51,6 +58,7 @@ class _FullscreenVideoPageState extends State<FullscreenVideoPage> {
   @override
   void initState() {
     super.initState();
+    _selectedQuality = widget.initialQuality;
     _lockLandscape();
     _attachListener();
     _startHideTimer();
@@ -270,6 +278,10 @@ class _FullscreenVideoPageState extends State<FullscreenVideoPage> {
                 ),
               ),
 
+              // ── 清晰度 popup（定位在芯片正上方）──
+              if (_showQualityPanel)
+                ..._buildQualityPopup(),
+
               // ── 纯黑遮罩：退出过渡 ──
               if (_isExiting)
                 Positioned.fill(
@@ -392,6 +404,8 @@ class _FullscreenVideoPageState extends State<FullscreenVideoPage> {
           Text(_fmt(_duration),
               style: TextStyle(
                   color: Colors.white.withAlpha(200), fontSize: 10)),
+          const SizedBox(width: 6),
+          _buildQualityChip(),
           const SizedBox(width: 12),
           _actionBtn(Icons.favorite, '${widget.item.likeCount}'),
           const SizedBox(width: 16),
@@ -403,6 +417,124 @@ class _FullscreenVideoPageState extends State<FullscreenVideoPage> {
         ],
       ),
     );
+  }
+
+  static const _qualities = ['480p', '720p', '1080p'];
+
+  Widget _buildQualityChip() {
+    return GestureDetector(
+      key: _qualityKey,
+      behavior: HitTestBehavior.opaque,
+      onTap: _toggleQualityPanel,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.3),
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _selectedQuality,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.85),
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(Icons.arrow_drop_down, size: 12, color: Colors.white.withValues(alpha: 0.6)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _toggleQualityPanel() {
+    _hideTimer?.cancel();
+    setState(() => _showQualityPanel = !_showQualityPanel);
+  }
+
+  List<Widget> _buildQualityPopup() {
+    final ctx = _qualityKey.currentContext;
+    if (ctx == null) return [const SizedBox.shrink()];
+
+    final box = ctx.findRenderObject() as RenderBox;
+    final offset = box.localToGlobal(Offset.zero);
+    final chipW = box.size.width;
+    final popupH = _qualities.length * 36.0;
+
+    final screenH = MediaQuery.of(context).size.height;
+    final top = (offset.dy - popupH - 4).clamp(0.0, screenH);
+    final left = (offset.dx + chipW / 2 - 60).clamp(0.0, double.infinity);
+
+    return [
+      Positioned.fill(
+        child: ModalBarrier(
+          onDismiss: () {
+            _showQualityPanel = false;
+            _startHideTimer();
+          },
+        ),
+      ),
+      // popup
+      Positioned(
+        top: top,
+        left: left,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: 120,
+            decoration: BoxDecoration(
+              color: const Color(0xFF2A2A2A),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: _qualities.map((q) {
+                final isSelected = _selectedQuality == q;
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _selectQuality(q),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(q,
+                            style: TextStyle(
+                              color: isSelected ? Colors.redAccent : Colors.white,
+                              fontSize: 13,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                            )),
+                        if (isSelected) ...[
+                          const SizedBox(width: 6),
+                          const Icon(Icons.check, color: Colors.redAccent, size: 14),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ),
+    ];
+  }
+
+  void _selectQuality(String quality) {
+    setState(() {
+      _selectedQuality = quality;
+      _showQualityPanel = false;
+    });
+    widget.onQualityChanged?.call(quality);
+    _startHideTimer();
   }
 
   Widget _actionBtn(IconData icon, String label) {

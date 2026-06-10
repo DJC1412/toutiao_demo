@@ -1,7 +1,24 @@
 {
   "permissions": {
     "allow": [
-      "Bash(flutter analyze *)"
+      "Bash(flutter analyze *)",
+      "Bash(cp \"C:/Users/Lenovo/Desktop/claude/demo/data/videos/BV1EpccznEyu.mp4\" \"C:/Users/Lenovo/Desktop/claude/demo/frontend/assets/videos/\")",
+      "Bash(cp \"C:/Users/Lenovo/Desktop/claude/demo/data/videos/BV1DSC8BkE7R.mp4\" \"C:/Users/Lenovo/Desktop/claude/demo/frontend/assets/videos/\")",
+      "Bash(cp \"C:/Users/Lenovo/Desktop/claude/demo/data/covers/BV1EpccznEyu.jpg\" \"C:/Users/Lenovo/Desktop/claude/demo/frontend/assets/covers/\")",
+      "Bash(cp \"C:/Users/Lenovo/Desktop/claude/demo/data/covers/BV1DSC8BkE7R.jpg\" \"C:/Users/Lenovo/Desktop/claude/demo/frontend/assets/covers/\")",
+      "Bash(flutter pub *)",
+      "Bash(ffprobe *)",
+      "Bash(D:/FFmpeg/ffmpeg-2026-06-08-git-6028720d70-full_build/bin/ffprobe.exe *)",
+      "Bash(D:/FFmpeg/ffmpeg-2026-06-08-git-6028720d70-full_build/bin/ffprobe.exe *、)",
+      "Bash(\"D:/FFmpeg/ffmpeg-2026-06-08-git-6028720d70-full_build/bin/ffprobe.exe\" -v error -show_entries stream=profile,level \"C:/Users/Lenovo/Desktop/claude/demo/data/videos/BV1DSC8BkE7R.mp4\")",
+      "Bash(\"D:/FFmpeg/ffmpeg-2026-06-08-git-6028720d70-full_build/bin/ffprobe.exe\" -v error -show_entries stream=profile,level \"C:/Users/Lenovo/Desktop/claude/demo/data/videos/BV1EpccznEyu.mp4\")",
+      "Bash(\"D:/FFmpeg/ffmpeg-2026-06-08-git-6028720d70-full_build/bin/ffprobe.exe\" -v error -show_entries stream=pix_fmt,codec_tag_string \"C:/Users/Lenovo/Desktop/claude/demo/data/videos/BV1DSC8BkE7R.mp4\")",
+      "Bash(\"D:/FFmpeg/ffmpeg-2026-06-08-git-6028720d70-full_build/bin/ffprobe.exe\" -v error -show_entries stream=pix_fmt,codec_tag_string \"C:/Users/Lenovo/Desktop/claude/demo/data/videos/BV1EpccznEyu.mp4\")",
+      "Bash(\"D:/FFmpeg/ffmpeg-2026-06-08-git-6028720d70-full_build/bin/ffprobe.exe\" -v error -show_entries stream=has_b_frames,refs,display_aspect_ratio \"C:/Users/Lenovo/Desktop/claude/demo/data/videos/BV1DSC8BkE7R.mp4\")",
+      "Bash(\"D:/FFmpeg/ffmpeg-2026-06-08-git-6028720d70-full_build/bin/ffprobe.exe\" -v error -show_entries stream=has_b_frames,refs,display_aspect_ratio \"C:/Users/Lenovo/Desktop/claude/demo/data/videos/BV1EpccznEyu.mp4\")",
+      "Bash(git tag *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

@@ -3,16 +3,22 @@ import 'package:provider/provider.dart';
 import '../../providers/search_provider.dart';
 import '../../providers/video_flow_provider.dart';
 import '../../data/models/feed_item.dart';
+import 'single_video_screen.dart';
 
-/// 页面3：搜索结果页（视频列表，支持点击反哺回跳）
+/// 搜索结果页（视频列表，点击进入单独播放页）
 class SearchResultScreen extends StatelessWidget {
   const SearchResultScreen({super.key});
 
   void _onTapResult(BuildContext context, FeedItem item) {
-    // 通知 VideoFlowProvider 定位该视频在数据源中的真实索引
-    context.read<VideoFlowProvider>().requestJumpToItem(item.id);
-    // 安全回退到视频流主页
-    Navigator.popUntil(context, ModalRoute.withName('/'));
+    if (item.isVideo) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => SingleVideoScreen(item: item)),
+      );
+    } else {
+      context.read<VideoFlowProvider>().requestJumpToItem(item.id);
+      Navigator.popUntil(context, ModalRoute.withName('/'));
+    }
   }
 
   @override
@@ -136,12 +142,21 @@ class _ResultRow extends StatelessWidget {
                     const SizedBox(height: 2),
                     Row(
                       children: [
-                        Icon(Icons.play_circle_filled,
-                            size: 14, color: Colors.red.shade400),
-                        const SizedBox(width: 2),
-                        Text('视频',
-                            style: TextStyle(
-                                color: Colors.red.shade400, fontSize: 11)),
+                        if (item.isVideo) ...[
+                          Icon(Icons.play_circle_filled,
+                              size: 14, color: Colors.red.shade400),
+                          const SizedBox(width: 2),
+                          Text('视频',
+                              style: TextStyle(
+                                  color: Colors.red.shade400, fontSize: 11)),
+                        ] else ...[
+                          Icon(Icons.photo_library,
+                              size: 14, color: Colors.blue.shade400),
+                          const SizedBox(width: 2),
+                          Text('图文',
+                              style: TextStyle(
+                                  color: Colors.blue.shade400, fontSize: 11)),
+                        ],
                         const SizedBox(width: 12),
                         Text('${item.commentCount} 评论',
                             style: TextStyle(

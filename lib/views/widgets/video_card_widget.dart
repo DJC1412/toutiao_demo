@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import '../../data/models/feed_item.dart';
+import '../../providers/search_provider.dart';
+import '../../providers/video_flow_provider.dart';
 import '../screens/fullscreen_video_page.dart';
 import 'interaction_buttons.dart';
 
@@ -30,6 +33,7 @@ class _VideoCardWidgetState extends State<VideoCardWidget> {
   double _dragValue = 0.0;
   bool _isExpanded = false;
   bool _hasAutoStarted = false;
+  late String _selectedQuality;
 
   bool get _isInitialized =>
       widget.controller != null && widget.controller!.value.isInitialized;
@@ -55,8 +59,8 @@ class _VideoCardWidgetState extends State<VideoCardWidget> {
   @override
   void initState() {
     super.initState();
+    _selectedQuality = widget.item.quality;
     _attachListener();
-    // 处理首屏：controller 可能已在池中预加载完毕
     _tryAutoPlay();
   }
 
@@ -187,9 +191,18 @@ class _VideoCardWidgetState extends State<VideoCardWidget> {
                           _buildFullscreenBtn(context),
                         ],
                       )
-                    : AspectRatio(
-                        aspectRatio: widget.controller!.value.aspectRatio,
-                        child: VideoPlayer(widget.controller!),
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AspectRatio(
+                            aspectRatio: widget.controller!.value.aspectRatio,
+                            child: VideoPlayer(widget.controller!),
+                          ),
+                          if (!widget.item.isVerticalVideo) ...[
+                            const SizedBox(height: 6),
+                            _buildFullscreenBtn(context),
+                          ],
+                        ],
                       ),
               ),
             ),
@@ -270,6 +283,8 @@ class _VideoCardWidgetState extends State<VideoCardWidget> {
                     ),
                     Text(_fmt(_duration),
                         style: TextStyle(color: Colors.white.withAlpha(204), fontSize: 11)),
+                    const SizedBox(width: 8),
+                    _buildQualityChip(),
                   ],
               ),
             ),
@@ -282,7 +297,7 @@ class _VideoCardWidgetState extends State<VideoCardWidget> {
   OverlayEntry? _fullscreenEntry;
 
   void _openFullscreen() {
-    if (_fullscreenEntry != null || widget.controller == null) return;
+    if (_fullscreenEntry != null || widget.controller == null || widget.item.isVerticalVideo) return;
     final overlay = Overlay.of(context);
     _fullscreenEntry = OverlayEntry(
       builder: (_) => Material(
@@ -291,6 +306,8 @@ class _VideoCardWidgetState extends State<VideoCardWidget> {
           item: widget.item,
           controller: widget.controller!,
           onExit: _closeFullscreen,
+          initialQuality: _selectedQuality,
+          onQualityChanged: (q) { _selectedQuality = q; },
         ),
       ),
     );
@@ -393,14 +410,154 @@ class _VideoCardWidgetState extends State<VideoCardWidget> {
             ),
           ),
         ),
+
+        // ── 相关搜索推荐胶囊（今日头条同款）──
+        _buildRelatedSearchCapsule(context),
       ],
     );
   }
 
+  /// 今日头条同款"相关搜索"推荐胶囊
+  ///
+  /// 位置：作者/标题信息下方，进度条上方
+  /// 样式：半透明圆角胶囊 + 搜索图标 + 关键词 + 右箭头
+  /// 交互：点击携带关键词跳转搜索结果页
+  Widget _buildRelatedSearchCapsule(BuildContext context) {
+    final keyword = widget.item.relatedSearchKeyword.trim();
+    if (keyword.isEmpty) return const SizedBox.shrink();
+
+    // 取第一个关键词作为展示项（若以逗号分隔）
+    final display = keyword.split(RegExp(r'[,，]')).first.trim();
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () async {
+        context.read<VideoFlowProvider>().pauseActive();
+        final sp = context.read<SearchProvider>();
+        await sp.search(keyword);
+        if (context.mounted) {
+          Navigator.pushNamed(context, '/result');
+        }
+      },
+      child: Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.search, size: 14, color: Colors.white.withValues(alpha: 0.7)),
+              const SizedBox(width: 4),
+              Text(
+                '相关搜索: $display',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(width: 2),
+              Icon(Icons.chevron_right, size: 14, color: Colors.white.withValues(alpha: 0.5)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static const _qualities = ['480p', '720p', '1080p'];
+  final GlobalKey _qualityKey = GlobalKey();
+
+  Widget _buildQualityChip() {
+    return GestureDetector(
+      key: _qualityKey,
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _showQualityMenu(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.3),
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _selectedQuality,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.85),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(Icons.arrow_drop_down, size: 14, color: Colors.white.withValues(alpha: 0.6)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showQualityMenu() {
+    final ctx = _qualityKey.currentContext;
+    if (ctx == null) return;
+    final box = ctx.findRenderObject() as RenderBox;
+    final offset = box.localToGlobal(Offset.zero);
+    final size = box.size;
+    showMenu<String>(
+      context: context,
+      color: const Color(0xFF2A2A2A),
+      elevation: 8,
+      position: RelativeRect.fromLTRB(
+        offset.dx,
+        offset.dy - (_qualities.length * 40 + 8),
+        offset.dx + size.width,
+        offset.dy - 4,
+      ),
+      items: _qualities.map((q) {
+        final isSelected = _selectedQuality == q;
+        return PopupMenuItem<String>(
+          value: q,
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(q,
+                  style: TextStyle(
+                    color: isSelected ? Colors.redAccent : Colors.white,
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  )),
+              if (isSelected) ...[
+                const SizedBox(width: 6),
+                const Icon(Icons.check, color: Colors.redAccent, size: 14),
+              ],
+            ],
+          ),
+        );
+      }).toList(),
+    ).then((v) {
+      if (v != null) setState(() => _selectedQuality = v);
+    });
+  }
+
   Widget _buildCover() {
+    final url = widget.item.coverUrl;
+    final fit = widget.item.isVerticalVideo ? BoxFit.cover : BoxFit.contain;
+    if (url.startsWith('assets/')) {
+      return Image.asset(url, fit: fit);
+    }
     return Image.network(
-      widget.item.coverUrl,
-      fit: BoxFit.cover,
+      url,
+      fit: fit,
       errorBuilder: (_, e, s) => Container(color: Colors.black),
     );
   }

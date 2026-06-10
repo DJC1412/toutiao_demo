@@ -1,40 +1,88 @@
-# Claude Code Project Guidelines: 今日头条视频播放流与搜索模块
+# CLAUDE.md
 
-## 1. 规约与技术栈 (Technology Stack & System Prompt)
-本工程为仿今日头条全屏视频流与搜索联动的跨平台项目。Claude Code 必须严格基于以下技术栈进行开发，确保 UI 与业务逻辑高度解耦：
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-* **核心框架**: Flutter (Dart) - 负责全链路 100% 全栈开发（含视频流、搜索中间页、搜索结果页）。
-* **状态管理**: `provider` (声明式状态管理)。
-* **核心插件**: 
-    * `video_player` (基础视频渲染与解码)
-    * `chewie` (负责手势控制、播控面板与进度条联动)
-    * `shared_preferences` (负责本地搜索历史的持久化存取)
-* **设计模式**: 严格遵守 MVVM (Model - View - ViewModel) 架构。
+## Commands
 
----
+```bash
+# Install dependencies
+flutter pub get
 
-## 2. 目录树与核心文件结构约束 (Directory Tree & File Constraints)
-Claude Code **必须且只能**在以下定义好的路径中创建、修改对应的 Dart 文件。禁止擅自更改目录结构或跨层引用：
+# Run the app (Android API 21+)
+flutter run
 
-```text
+# Static analysis / lint
+flutter analyze
+
+# Run tests
+flutter test                    # all tests
+flutter test test/widget_test.dart  # single test file
+
+# View PlayerPool performance logs
+flutter logs | grep "PlayerPool"
+```
+
+## Architecture
+
+仿今日头条全屏视频流与搜索联动的 Flutter 项目。严格遵循 **MVVM** 分层架构，状态管理使用 **Provider**。
+
+### Layer Map
+
+| 层 | 位置 | 职责 |
+|---|---|---|
+| Model | `lib/data/models/` | `FeedItem` — 混合流统一数据模型（video/image 枚举，多图，AI标签，推荐词） |
+| Repository | `lib/data/repository/` | `FeedRepository` — 单例数据仓库：分页查询、Fisher-Yates 洗牌推荐、权重评分搜索 |
+| ViewModel | `lib/providers/` | `VideoFlowProvider` + `SearchProvider` — 状态管理、播放器复用池、搜索历史持久化 |
+| View | `lib/views/` | Screens + Widgets — 纯 UI 渲染，通过 Provider 消费状态 |
+
+### Directory Structure
+
+```
 lib/
 ├── data/
 │   ├── models/
-│   │   └── feed_item.dart          # 【红线】混合流内容数据模型（含视频/图文、AI推荐词）
-│   └── datasource/
-│       └── mock_data_center.dart   # 本地 Mock 数据内容库（含模糊检索逻辑）
+│   │   └── feed_item.dart          # FeedItem 数据模型（FeedType 枚举）
+│   └── repository/
+│       └── feed_repository.dart    # 单例仓库：12条假数据、分页/洗牌/权重搜索
 ├── providers/
-│   ├── video_flow_provider.dart    # 【性能红线】管理全局视频流状态、分页加载、以及播放器实例复用池
-│   └── search_provider.dart        # 管理搜索历史（SharedPreferences）、检索词触发、结果过滤状态
+│   ├── video_flow_provider.dart    # 【红线】视频流状态 + 播放器复用池（上限3个Controller）
+│   └── search_provider.dart        # 搜索历史（SharedPreferences）+ 检索 + 结果过滤
 ├── views/
 │   ├── screens/
-│   │   ├── video_flow_screen.dart   # 页面1：视频播放流主页（含全屏滑动容器）
-│   │   ├── search_middle_screen.dart# 页面2：搜索中间页（含键盘拉起、历史词网格）
-│   │   └── search_result_screen.dart# 页面3：搜索结果页（视频列表，支持点击反哺回跳）
+│   │   ├── video_flow_screen.dart       # 首页：全屏垂直滑动 PageView
+│   │   ├── search_middle_screen.dart    # 搜索中间页：键盘 + 历史词网格
+│   │   ├── search_result_screen.dart    # 搜索结果页：视频列表 → 点击回跳首页
+│   │   └── fullscreen_video_page.dart   # 横屏全屏 OverlayEntry（非 Navigator push）
 │   └── widgets/
-│       ├── feed_item_dispatcher.dart# 混合模板分发器（判断渲染视频卡片还是图文卡片）
-│       ├── video_card_widget.dart   # 视频流卡片组件（手势单击、双击、进度条快进）
-│       ├── image_card_widget.dart   # 图文流卡片组件（进阶要求：多图混排卡片）
-│       ├── interaction_buttons.dart # 右侧静态互动挂件（头像、点赞、评论、分享）
-│       └── search_bar_header.dart   # 顶部通栏搜索框组件
-└── main.dart                        # 应用全局入口、Provider 初始化与二级路由表配置
+│       ├── feed_item_dispatcher.dart    # 视频/图文模板分发器
+│       ├── video_card_widget.dart       # 视频卡片：播控 UI + 展开文案 + 进度条
+│       ├── image_card_widget.dart       # 图文卡片：横向多图轮播 + 页码器
+│       ├── interaction_buttons.dart     # 右侧互动挂件（头像/点赞/评论/分享）
+│       └── search_bar_header.dart       # 顶部搜索入口
+└── main.dart                            # MultiProvider 初始化 + 命名路由表
+```
+
+### Key Design Decisions
+
+**1. Player Pool Pattern** (`video_flow_provider.dart`)
+池上限 3 个 `VideoPlayerController`（Prev / Current / Next），滑动窗口算法自动回收超出距离的实例。`_updateWindow(centerIndex)` 按距离排序视频索引，截取最近 3 个进池，超出窗口的立即 `dispose()`。
+
+**2. OverlayEntry 全屏方案**（非 Navigator push）
+竖屏切横屏全屏不使用 `Navigator.push`，而是通过 `OverlayEntry` 插入透明 `Material` 包裹的 `FullscreenVideoPage`，**复用同一个 Controller 实例**，避免路由出栈时的黑屏抖动和视频重载。退出时先旋转屏幕方向 → `await 200ms` → `entry.remove()`，保证转屏在贴纸下完成后再撕掉。
+
+**3. 跨页面搜索回跳**
+搜索结果页点击视频 → `VideoFlowProvider.requestJumpToItem(itemId)` 设置 `pendingJumpIndex` → `Navigator.popUntil` 回到首页 → `VideoFlowScreen` 检测到 pending index → `PageController.jumpToPage(targetIndex)` 定位播放。
+
+**4. FeedRepository 洗牌引擎**
+`fetchRecommendFeeds()` 每次调用 Fisher-Yates 洗牌 + 时间戳注入唯一 ID（`{原ID}_ts{timestamp}_{序号}`），防止 PageView key 冲突，支持无限下拉。
+
+**5. _safeSetState 防崩溃**
+全屏 `play()` 回调可能触发竖屏 Widget 的 listener → `setState() called during build`。`_safeSetState()` 检测 `SchedulerPhase`，build 阶段推迟到 `postFrame` 执行。
+
+### Route Table
+
+| 路径 | 页面 | 说明 |
+|---|---|---|
+| `/` | `VideoFlowScreen` | 首页视频流 |
+| `/search` | `SearchMiddleScreen` | 搜索中间页 |
+| `/result` | `SearchResultScreen` | 搜索结果页 |

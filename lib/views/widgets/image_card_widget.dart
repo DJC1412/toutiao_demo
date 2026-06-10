@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../data/models/feed_item.dart';
+import '../../providers/search_provider.dart';
+import '../../providers/video_flow_provider.dart';
 import 'interaction_buttons.dart';
 
 /// 图文流卡片组件 —— 与 VideoCard 保持完全一致的 UI 布局规范
@@ -180,7 +183,96 @@ class _ImageCardWidgetState extends State<ImageCardWidget> {
             ),
           ),
         ),
+
+        // AI 标签胶囊
+        _buildAiTags(context),
+
+        // 相关搜索推荐胶囊
+        _buildRelatedSearchCapsule(context),
       ],
+    );
+  }
+
+  /// AI 标签横向排列
+  Widget _buildAiTags(BuildContext context) {
+    final tag = (widget.item.aiTag ?? '').trim();
+    if (tag.isEmpty) return const SizedBox.shrink();
+
+    final tags = tag.split(RegExp(r'[,，]'));
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 4,
+        children: tags.map((t) {
+          final trimmed = t.trim();
+          if (trimmed.isEmpty) return const SizedBox.shrink();
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.2),
+                width: 0.5,
+              ),
+            ),
+            child: Text(
+              trimmed,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.75),
+                fontSize: 11,
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  /// 相关搜索推荐胶囊（与 VideoCard 一致）
+  Widget _buildRelatedSearchCapsule(BuildContext context) {
+    final keyword = widget.item.relatedSearchKeyword.trim();
+    if (keyword.isEmpty) return const SizedBox.shrink();
+
+    final display = keyword.split(RegExp(r'[,，]')).first.trim();
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () async {
+        context.read<VideoFlowProvider>().pauseActive();
+        final sp = context.read<SearchProvider>();
+        await sp.search(keyword);
+        if (context.mounted) {
+          Navigator.pushNamed(context, '/result');
+        }
+      },
+      child: Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.search, size: 14, color: Colors.white.withValues(alpha: 0.7)),
+              const SizedBox(width: 4),
+              Text(
+                '相关搜索: $display',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(width: 2),
+              Icon(Icons.chevron_right, size: 14, color: Colors.white.withValues(alpha: 0.5)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

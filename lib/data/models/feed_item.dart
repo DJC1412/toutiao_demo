@@ -9,6 +9,8 @@ class FeedItem {
   final String coverUrl;
   final String? videoUrl;
   final FeedType type;
+  final String? orientation;
+  final String quality;
   final String? aiTag;
   final String relatedSearchKeyword;
   final List<String> imageUrls;
@@ -24,6 +26,8 @@ class FeedItem {
     required this.coverUrl,
     this.videoUrl,
     required this.type,
+    this.orientation,
+    this.quality = '1080p',
     this.aiTag,
     required this.relatedSearchKeyword,
     this.imageUrls = const [],
@@ -34,4 +38,6 @@ class FeedItem {
   });
 
   bool get isVideo => type == FeedType.video;
+
+  bool get isVerticalVideo => orientation == 'vertical';
 }
