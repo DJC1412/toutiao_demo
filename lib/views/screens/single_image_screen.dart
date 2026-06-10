@@ -130,9 +130,7 @@ class _SingleImageScreenState extends State<SingleImageScreen> {
   }
 
   Widget _buildTextLayer() {
-    final text = '${widget.item.title}  ${widget.item.description}';
-    final screenH = MediaQuery.of(context).size.height;
-    final maxH = _isExpanded ? screenH * 0.35 : 45.0;
+    final maxH = _isExpanded ? 200.0 : 55.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -153,15 +151,32 @@ class _SingleImageScreenState extends State<SingleImageScreen> {
             physics: _isExpanded
                 ? const AlwaysScrollableScrollPhysics()
                 : const NeverScrollableScrollPhysics(),
-            child: Text(
-              text,
-              maxLines: _isExpanded ? null : 2,
-              overflow: _isExpanded ? null : TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                height: 1.4,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.item.title,
+                  maxLines: _isExpanded ? null : 1,
+                  overflow: _isExpanded ? null : TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                ),
+                if (_isExpanded) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.item.description,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ),

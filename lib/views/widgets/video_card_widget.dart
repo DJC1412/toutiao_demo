@@ -350,16 +350,13 @@ class _VideoCardWidgetState extends State<VideoCardWidget> {
   // 文字层：作者 + 描述(限高局部滚动) + 展开/收起按钮(在滚动区外)
   // ═══════════════════════════════════════════════════════════════
   Widget _buildTextLayer() {
-    final text = '${widget.item.title}  ${widget.item.description}';
     final screenH = MediaQuery.of(context).size.height;
-    // 描述区最大高度：展开时 35% 屏高，折叠时严格限 45px 保证不出界
-    final maxH = _isExpanded ? screenH * 0.35 : 45.0;
+    final maxH = _isExpanded ? screenH * 0.35 : 55.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 作者名
         GestureDetector(
           onTap: widget.onTogglePlay,
           child: Text(
@@ -373,22 +370,38 @@ class _VideoCardWidgetState extends State<VideoCardWidget> {
         ),
         const SizedBox(height: 6),
 
-        // ── 限高滚动区（仅包裹文本，不包含按钮）──
         ConstrainedBox(
           constraints: BoxConstraints(maxHeight: maxH),
           child: SingleChildScrollView(
             physics: _isExpanded
                 ? const AlwaysScrollableScrollPhysics()
                 : const NeverScrollableScrollPhysics(),
-            child: Text(
-              text,
-              maxLines: _isExpanded ? null : 2,
-              overflow: _isExpanded ? null : TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                height: 1.4,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.item.title,
+                  maxLines: _isExpanded ? null : 1,
+                  overflow: _isExpanded ? null : TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                ),
+                if (_isExpanded) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.item.description,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ),
@@ -417,53 +430,57 @@ class _VideoCardWidgetState extends State<VideoCardWidget> {
     );
   }
 
-  /// 今日头条同款"相关搜索"推荐胶囊
-  ///
-  /// 位置：作者/标题信息下方，进度条上方
-  /// 样式：半透明圆角胶囊 + 搜索图标 + 关键词 + 右箭头
-  /// 交互：点击携带关键词跳转搜索结果页
+  /// 相关搜索词标签按钮：每个词独立跳转搜索
   Widget _buildRelatedSearchCapsule(BuildContext context) {
     final keyword = widget.item.relatedSearchKeyword.trim();
     if (keyword.isEmpty) return const SizedBox.shrink();
 
-    // 取第一个关键词作为展示项（若以逗号分隔）
-    final display = keyword.split(RegExp(r'[,，]')).first.trim();
+    final tags = keyword.split(RegExp(r'[,，]')).map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
+    if (tags.isEmpty) return const SizedBox.shrink();
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () async {
-        context.read<VideoFlowProvider>().pauseActive();
-        final sp = context.read<SearchProvider>();
-        await sp.search(keyword);
-        if (context.mounted) {
-          Navigator.pushNamed(context, '/result');
-        }
-      },
-      child: Padding(
-        padding: const EdgeInsets.only(top: 6),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.search, size: 14, color: Colors.white.withValues(alpha: 0.7)),
-              const SizedBox(width: 4),
-              Text(
-                '相关搜索: $display',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  fontSize: 12,
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: tags.map((tag) {
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () async {
+              context.read<VideoFlowProvider>().pauseActive();
+              final sp = context.read<SearchProvider>();
+              await sp.search(tag);
+              if (context.mounted) {
+                Navigator.pushNamed(context, '/result');
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.25),
+                  width: 0.5,
                 ),
               ),
-              const SizedBox(width: 2),
-              Icon(Icons.chevron_right, size: 14, color: Colors.white.withValues(alpha: 0.5)),
-            ],
-          ),
-        ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.search, size: 12, color: Colors.white.withValues(alpha: 0.6)),
+                  const SizedBox(width: 4),
+                  Text(
+                    tag,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }

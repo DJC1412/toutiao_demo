@@ -6,6 +6,8 @@ import 'views/screens/video_flow_screen.dart';
 import 'views/screens/search_middle_screen.dart';
 import 'views/screens/search_result_screen.dart';
 
+final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
+
 void main() {
   runApp(const MyApp());
 }
@@ -23,6 +25,7 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: '今日头条',
         debugShowCheckedModeBanner: false,
+        navigatorObservers: [routeObserver],
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.red),
           useMaterial3: true,

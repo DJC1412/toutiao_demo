@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../main.dart';
 import '../../providers/video_flow_provider.dart';
 import '../widgets/feed_item_dispatcher.dart';
 import '../widgets/search_bar_header.dart';
@@ -14,7 +15,7 @@ class VideoFlowScreen extends StatefulWidget {
 }
 
 class _VideoFlowScreenState extends State<VideoFlowScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, RouteAware {
   PageController? _pageController;
   int? _lastConsumedJump;
   double _dragStartPage = 0;
@@ -38,6 +39,12 @@ class _VideoFlowScreenState extends State<VideoFlowScreen>
     });
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context) as PageRoute);
+  }
+
   void _onPageOrLoad(int index, VideoFlowProvider p) {
     p.onPageChanged(index);
     _lastConsumedJump = null;
@@ -48,9 +55,15 @@ class _VideoFlowScreenState extends State<VideoFlowScreen>
 
   @override
   void dispose() {
+    routeObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     _pageController?.dispose();
     super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    context.read<VideoFlowProvider>().playActive();
   }
 
   @override

@@ -128,9 +128,7 @@ class _ImageCardWidgetState extends State<ImageCardWidget> {
   // 文字层：与 VideoCard 完全一致的折叠/展开逻辑
   // ═══════════════════════════════════════════════════════════════
   Widget _buildTextLayer(BuildContext context) {
-    final text = '${widget.item.title}  ${widget.item.description}';
-    final screenH = MediaQuery.of(context).size.height;
-    final maxH = _isExpanded ? screenH * 0.35 : 45.0;
+    final maxH = _isExpanded ? 200.0 : 55.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -146,22 +144,38 @@ class _ImageCardWidgetState extends State<ImageCardWidget> {
         ),
         const SizedBox(height: 6),
 
-        // 限高滚动区
         ConstrainedBox(
           constraints: BoxConstraints(maxHeight: maxH),
           child: SingleChildScrollView(
             physics: _isExpanded
                 ? const AlwaysScrollableScrollPhysics()
                 : const NeverScrollableScrollPhysics(),
-            child: Text(
-              text,
-              maxLines: _isExpanded ? null : 2,
-              overflow: _isExpanded ? null : TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                height: 1.4,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.item.title,
+                  maxLines: _isExpanded ? null : 1,
+                  overflow: _isExpanded ? null : TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                ),
+                if (_isExpanded) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.item.description,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ),
@@ -184,94 +198,63 @@ class _ImageCardWidgetState extends State<ImageCardWidget> {
           ),
         ),
 
-        // AI 标签胶囊
-        _buildAiTags(context),
-
         // 相关搜索推荐胶囊
         _buildRelatedSearchCapsule(context),
       ],
     );
   }
 
-  /// AI 标签横向排列
-  Widget _buildAiTags(BuildContext context) {
-    final tag = (widget.item.aiTag ?? '').trim();
-    if (tag.isEmpty) return const SizedBox.shrink();
-
-    final tags = tag.split(RegExp(r'[,，]'));
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 4,
-        children: tags.map((t) {
-          final trimmed = t.trim();
-          if (trimmed.isEmpty) return const SizedBox.shrink();
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.2),
-                width: 0.5,
-              ),
-            ),
-            child: Text(
-              trimmed,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.75),
-                fontSize: 11,
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  /// 相关搜索推荐胶囊（与 VideoCard 一致）
+  /// 相关搜索词标签按钮：每个词独立跳转搜索
   Widget _buildRelatedSearchCapsule(BuildContext context) {
     final keyword = widget.item.relatedSearchKeyword.trim();
     if (keyword.isEmpty) return const SizedBox.shrink();
 
-    final display = keyword.split(RegExp(r'[,，]')).first.trim();
+    final tags = keyword.split(RegExp(r'[,，]')).map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
+    if (tags.isEmpty) return const SizedBox.shrink();
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () async {
-        context.read<VideoFlowProvider>().pauseActive();
-        final sp = context.read<SearchProvider>();
-        await sp.search(keyword);
-        if (context.mounted) {
-          Navigator.pushNamed(context, '/result');
-        }
-      },
-      child: Padding(
-        padding: const EdgeInsets.only(top: 6),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.search, size: 14, color: Colors.white.withValues(alpha: 0.7)),
-              const SizedBox(width: 4),
-              Text(
-                '相关搜索: $display',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  fontSize: 12,
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: tags.map((tag) {
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () async {
+              context.read<VideoFlowProvider>().pauseActive();
+              final sp = context.read<SearchProvider>();
+              await sp.search(tag);
+              if (context.mounted) {
+                Navigator.pushNamed(context, '/result');
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.25),
+                  width: 0.5,
                 ),
               ),
-              const SizedBox(width: 2),
-              Icon(Icons.chevron_right, size: 14, color: Colors.white.withValues(alpha: 0.5)),
-            ],
-          ),
-        ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.search, size: 12, color: Colors.white.withValues(alpha: 0.6)),
+                  const SizedBox(width: 4),
+                  Text(
+                    tag,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }

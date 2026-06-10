@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/video_flow_provider.dart';
 
 /// 顶部搜索按钮（放大镜图标）
 class SearchBarHeader extends StatelessWidget {
@@ -8,7 +10,10 @@ class SearchBarHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       icon: const Icon(Icons.search, color: Colors.white, size: 28),
-      onPressed: () => Navigator.pushNamed(context, '/search'),
+      onPressed: () {
+        context.read<VideoFlowProvider>().pauseActive();
+        Navigator.pushNamed(context, '/search');
+      },
     );
   }
 }

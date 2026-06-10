@@ -187,7 +187,7 @@ class _SingleVideoScreenState extends State<SingleVideoScreen> {
                     Text(
                       widget.item.description,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
+                        color: Colors.white.withValues(alpha: 0.7),
                         fontSize: 13,
                       ),
                       maxLines: 2,
