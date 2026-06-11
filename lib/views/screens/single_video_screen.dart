@@ -347,8 +347,50 @@ class _SingleVideoScreenState extends State<SingleVideoScreen> {
     );
   }
 
-  static const _qualities = ['480p', '720p', '1080p'];
+  static const _serverBase = 'http://192.168.2.8:8080';
   final GlobalKey _qualityKey = GlobalKey();
+
+  List<String> get _availableQualities {
+    final url = widget.item.videoUrl;
+    if (url == null || !url.startsWith(_serverBase)) return ['1080p'];
+    return ['480p', '720p', '1080p'];
+  }
+
+  String? _buildQualityUrl(String quality) {
+    final baseUrl = widget.item.videoUrl;
+    if (baseUrl == null || !baseUrl.startsWith(_serverBase)) return null;
+    final idx = baseUrl.lastIndexOf('.');
+    if (idx == -1) return null;
+    var name = baseUrl.substring(0, idx);
+    name = name.replaceAll(RegExp(r'_(480p|720p|1080p)$'), '');
+    return '${name}_$quality${baseUrl.substring(idx)}';
+  }
+
+  Future<void> _switchQuality(String quality) async {
+    if (_controller == null || !_isInitialized) return;
+    final newUrl = _buildQualityUrl(quality);
+    if (newUrl == null) return;
+
+    final wasPlaying = _isPlaying;
+    final pos = _position;
+
+    await _controller!.pause();
+    await _controller!.dispose();
+
+    final controller = VideoPlayerController.networkUrl(Uri.parse(newUrl));
+    _controller = controller;
+    controller.addListener(_onControllerUpdate);
+    await controller.initialize();
+    await controller.seekTo(pos);
+    _isInitialized = true;
+    if (wasPlaying) {
+      controller.play();
+      _isPlaying = true;
+    } else {
+      _isPlaying = false;
+    }
+    if (mounted) setState(() {});
+  }
 
   Widget _buildQualityChip() {
     return GestureDetector(
@@ -390,17 +432,19 @@ class _SingleVideoScreenState extends State<SingleVideoScreen> {
     final box = ctx.findRenderObject() as RenderBox;
     final offset = box.localToGlobal(Offset.zero);
     final size = box.size;
+    final qualities = _availableQualities;
+
     showMenu<String>(
       context: context,
       color: const Color(0xFF2A2A2A),
       elevation: 8,
       position: RelativeRect.fromLTRB(
         offset.dx,
-        offset.dy - (_qualities.length * 40 + 8),
+        offset.dy - (qualities.length * 40 + 8),
         offset.dx + size.width,
         offset.dy - 4,
       ),
-      items: _qualities.map((q) {
+      items: qualities.map((q) {
         final isSelected = _selectedQuality == q;
         return PopupMenuItem<String>(
           value: q,
@@ -423,8 +467,11 @@ class _SingleVideoScreenState extends State<SingleVideoScreen> {
           ),
         );
       }).toList(),
-    ).then((v) {
-      if (v != null) setState(() => _selectedQuality = v);
+    ).then((v) async {
+      if (v != null && v != _selectedQuality) {
+        setState(() => _selectedQuality = v);
+        await _switchQuality(v);
+      }
     });
   }
 

@@ -68,7 +68,7 @@ class _FullscreenVideoPageState extends State<FullscreenVideoPage> {
   void dispose() {
     _hideTimer?.cancel();
     _detachListener();
-    _restorePortrait();
+    if (_isExiting) _restorePortrait();
     super.dispose();
   }
 

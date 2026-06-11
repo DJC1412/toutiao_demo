@@ -297,21 +297,33 @@ class _VideoCardWidgetState extends State<VideoCardWidget> {
   OverlayEntry? _fullscreenEntry;
 
   void _openFullscreen() {
-    if (_fullscreenEntry != null || widget.controller == null || widget.item.isVerticalVideo) return;
+    final ctrl = context.read<VideoFlowProvider>().getControllerFor(widget.item.id);
+    if (_fullscreenEntry != null || ctrl == null || widget.item.isVerticalVideo) return;
     final overlay = Overlay.of(context);
     _fullscreenEntry = OverlayEntry(
       builder: (_) => Material(
         type: MaterialType.transparency,
         child: FullscreenVideoPage(
           item: widget.item,
-          controller: widget.controller!,
+          controller: ctrl,
           onExit: _closeFullscreen,
           initialQuality: _selectedQuality,
-          onQualityChanged: (q) { _selectedQuality = q; },
+          onQualityChanged: (q) async {
+            _selectedQuality = q;
+            await context.read<VideoFlowProvider>().switchQuality(widget.item.id, q);
+            _reinsertFullscreen();
+          },
         ),
       ),
     );
     overlay.insert(_fullscreenEntry!);
+  }
+
+  void _reinsertFullscreen() {
+    if (_fullscreenEntry == null) return;
+    _fullscreenEntry!.remove();
+    _fullscreenEntry = null;
+    _openFullscreen();
   }
 
   Future<void> _closeFullscreen() async {
@@ -485,7 +497,6 @@ class _VideoCardWidgetState extends State<VideoCardWidget> {
     );
   }
 
-  static const _qualities = ['480p', '720p', '1080p'];
   final GlobalKey _qualityKey = GlobalKey();
 
   Widget _buildQualityChip() {
@@ -528,17 +539,21 @@ class _VideoCardWidgetState extends State<VideoCardWidget> {
     final box = ctx.findRenderObject() as RenderBox;
     final offset = box.localToGlobal(Offset.zero);
     final size = box.size;
+
+    final provider = context.read<VideoFlowProvider>();
+    final qualities = provider.availableQualities(widget.item.id);
+
     showMenu<String>(
       context: context,
       color: const Color(0xFF2A2A2A),
       elevation: 8,
       position: RelativeRect.fromLTRB(
         offset.dx,
-        offset.dy - (_qualities.length * 40 + 8),
+        offset.dy - (qualities.length * 40 + 8),
         offset.dx + size.width,
         offset.dy - 4,
       ),
-      items: _qualities.map((q) {
+      items: qualities.map((q) {
         final isSelected = _selectedQuality == q;
         return PopupMenuItem<String>(
           value: q,
@@ -561,8 +576,11 @@ class _VideoCardWidgetState extends State<VideoCardWidget> {
           ),
         );
       }).toList(),
-    ).then((v) {
-      if (v != null) setState(() => _selectedQuality = v);
+    ).then((v) async {
+      if (v != null && v != _selectedQuality) {
+        setState(() => _selectedQuality = v);
+        await provider.switchQuality(widget.item.id, v);
+      }
     });
   }
 

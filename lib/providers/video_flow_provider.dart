@@ -36,6 +36,8 @@ class VideoFlowProvider extends ChangeNotifier {
   // ── 播放器复用池 ──
   static const int _maxPoolSize = 3;
   final Map<String, _PlayerEntry> _pool = {};
+  final Map<String, String> _qualityUrlCache = {};
+  static const _serverBase = 'http://192.168.2.8:8080';
 
   int _currentPageIndex = 0;
   int get currentPageIndex => _currentPageIndex;
@@ -136,7 +138,7 @@ class VideoFlowProvider extends ChangeNotifier {
     developer.log('⏳ [Preload] 开始预加载: $id — "${item.title}" | url=${item.videoUrl}',
         name: 'PlayerPool');
 
-    final url = item.videoUrl!;
+    final url = _qualityUrlCache[id] ?? item.videoUrl!;
     final controller = url.startsWith('assets/')
         ? VideoPlayerController.asset(url)
         : VideoPlayerController.networkUrl(
@@ -265,6 +267,82 @@ class VideoFlowProvider extends ChangeNotifier {
     _items.addAll(nextPage);
     _isLoading = false;
     notifyListeners();
+  }
+
+  /// 为本地服务器视频构造不同清晰度的 URL
+  String? _buildQualityUrl(String baseUrl, String quality) {
+    if (!baseUrl.startsWith(_serverBase)) return null;
+    final idx = baseUrl.lastIndexOf('.');
+    if (idx == -1) return null;
+    var name = baseUrl.substring(0, idx);
+    name = name.replaceAll(RegExp(r'_(480p|720p|1080p)$'), '');
+    return '${name}_$quality${baseUrl.substring(idx)}';
+  }
+
+  /// 切换清晰度：销毁旧控制器 → 用新 URL 重建 → Seek 回原进度
+  Future<void> switchQuality(String itemId, String quality) async {
+    final entry = _pool[itemId];
+    if (entry == null) return;
+
+    final idx = _items.indexWhere((i) => i.id == itemId);
+    if (idx == -1) return;
+    final newUrl = _buildQualityUrl(_items[idx].videoUrl!, quality);
+    if (newUrl == null) return;
+
+    final wasPlaying = entry.controller.value.isPlaying;
+    final pos = entry.controller.value.position;
+
+    // 销毁旧控制器
+    try {
+      await entry.controller.pause();
+      await entry.controller.dispose();
+    } catch (_) {}
+
+    // 用新 URL 创建控制器
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse(newUrl),
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+    final newEntry = _PlayerEntry(controller);
+    _pool[itemId] = newEntry;
+
+    controller.addListener(() {
+      if (controller.value.hasError) {
+        developer.log(
+            '🚨 [RuntimeError] $itemId | '
+            'errorDescription=${controller.value.errorDescription}',
+            name: 'PlayerPool');
+      }
+    });
+
+    _qualityUrlCache[itemId] = newUrl;
+
+    try {
+      await controller.initialize();
+    } catch (_) {
+      return;
+    }
+    newEntry.initializedAt = DateTime.now();
+
+    // 恢复进度和播放状态
+    try {
+      await controller.seekTo(pos);
+    } catch (_) {}
+    if (wasPlaying && itemId == _activeVideoId) {
+      controller.play();
+    }
+
+    notifyListeners();
+    developer.log('🔄 [Quality] $itemId → $quality, url=$newUrl', name: 'PlayerPool');
+  }
+
+  /// 获取当前 item 的可用清晰度列表（仅本地服务器视频）
+  List<String> availableQualities(String itemId) {
+    final idx = _items.indexWhere((i) => i.id == itemId);
+    if (idx == -1) return ['1080p'];
+    final baseUrl = _items[idx].videoUrl;
+    if (baseUrl == null || !baseUrl.startsWith(_serverBase)) return ['1080p'];
+    return ['480p', '720p', '1080p'];
   }
 
   // ── 播控操作 ──
