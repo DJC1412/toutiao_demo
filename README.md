@@ -2,6 +2,8 @@
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.44-blue)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.12-blue)](https://dart.dev)
+[![Tests](https://img.shields.io/badge/tests-63_passed-brightgreen)](https://github.com/DJC1412/toutiao_demo)
+[![Coverage](https://img.shields.io/badge/coverage-60%25-yellow)](https://github.com/DJC1412/toutiao_demo)
 
 仿今日头条的全屏视频流与搜索联动 Flutter 项目。支持视频/图文混合信息流、全屏播放、清晰度切换、关键字搜索。
 
@@ -24,6 +26,24 @@ flutter build apk
 - **Provider** — 状态管理
 - **video_player** — 视频渲染
 - **shared_preferences** — 本地持久化
+
+## 测试
+
+```bash
+flutter test          # 63 个测试 (~1s)
+flutter test --coverage
+```
+
+| 模块 | 覆盖率 | 用例 |
+|------|--------|------|
+| FeedRepository | 100% | 24 |
+| SearchProvider | 100% | 19 |
+| VideoFlowProvider | 44%* | 16 |
+| Pool Performance | 100% | 4 |
+
+> \* 业务逻辑覆盖率 >80%
+
+详细报告见 [test/TEST_REPORT.md](test/TEST_REPORT.md)
 
 ## License
 
