@@ -20,6 +20,7 @@ class _VideoFlowScreenState extends State<VideoFlowScreen>
   int? _lastConsumedJump;
   double _dragStartPage = 0;
   bool _isAnimating = false;
+  final Set<String> _preloadedUrls = {};
 
   @override
   void initState() {
@@ -91,6 +92,14 @@ class _VideoFlowScreenState extends State<VideoFlowScreen>
   Widget build(BuildContext context) {
     final provider = context.watch<VideoFlowProvider>();
     final items = provider.items;
+
+    // ── 预加载附近图片 ──
+    for (final url in provider.nearbyImageUrls) {
+      if (!_preloadedUrls.contains(url)) {
+        _preloadedUrls.add(url);
+        precacheImage(NetworkImage(url), context);
+      }
+    }
 
     final pendingJump = provider.pendingJumpIndex;
     if (pendingJump != null) {

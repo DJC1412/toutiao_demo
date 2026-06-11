@@ -33,6 +33,10 @@ class VideoFlowProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get hasMore => _hasMore;
 
+  // ── 图片预加载 ──
+  final List<String> _nearbyImageUrls = [];
+  List<String> get nearbyImageUrls => List.unmodifiable(_nearbyImageUrls);
+
   // ── 播放器复用池 ──
   static const int _maxPoolSize = 3;
   final Map<String, _PlayerEntry> _pool = {};
@@ -129,6 +133,16 @@ class VideoFlowProvider extends ChangeNotifier {
       _activeVideoId = null;
     }
 
+    // ── 收集附近图片 URL 用于预加载 ──
+    _nearbyImageUrls.clear();
+    for (int i = centerIndex - 2; i <= centerIndex + 2; i++) {
+      if (i >= 0 && i < _items.length && !_items[i].isVideo) {
+        final imgs = _items[i].imageUrls;
+        _nearbyImageUrls.addAll(imgs);
+        if (_items[i].coverUrl.isNotEmpty) _nearbyImageUrls.add(_items[i].coverUrl);
+      }
+    }
+
     developer.log(
         '📍 [Pool] 滑窗更新 | center=$centerIndex | 池内=${_pool.length} | '
         '窗口=${window.map((i) => _items[i].id).toList()} | active=$_activeVideoId',
@@ -195,7 +209,6 @@ class VideoFlowProvider extends ChangeNotifier {
     });
   }
 
-  @visibleForTesting
   VideoPlayerController _createController(FeedItem item) {
     final url = _qualityUrlCache[item.id] ?? item.videoUrl!;
     return url.startsWith('assets/')

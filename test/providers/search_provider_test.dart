@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:toutiao_demo/providers/search_provider.dart';
-import 'package:toutiao_demo/data/models/feed_item.dart';
 
 void main() {
   late SearchProvider provider;

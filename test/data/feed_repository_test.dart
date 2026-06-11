@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:toutiao_demo/data/repository/feed_repository.dart';
-import 'package:toutiao_demo/data/models/feed_item.dart';
 
 void main() {
   late FeedRepository repo;
