@@ -22,7 +22,8 @@
       "Bash(flutter build *)",
       "Bash(flutter devices *)",
       "Bash(adb devices *)",
-      "Bash(flutter install *)"
+      "Bash(flutter install *)",
+      "Bash(git checkout *)"
     ]
   }
 }

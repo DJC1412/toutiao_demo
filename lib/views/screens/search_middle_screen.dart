@@ -1,5 +1,7 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../data/repository/feed_repository.dart';
 import '../../providers/search_provider.dart';
 
 /// 页面2：搜索中间页（含键盘拉起、历史词网格）
@@ -181,22 +183,27 @@ class _SearchMiddleScreenState extends State<SearchMiddleScreen> {
   }
 
   Widget _buildHotWords() {
-    const hotWords = [
-      '华为Mate80价格',
-      '天水麻辣烫',
-      '318国道最新路况',
-      '湖人vs勇士全场回放',
-      '周杰伦演唱会',
-      '黑神话悟空DLC',
-      '小米SU7落地价',
-      '哪吒之魔童闹海',
-    ];
+    final items = FeedRepository.instance.getAllItems();
+    final keywords = <String>{};
+    for (final item in items) {
+      for (final kw in item.relatedSearchKeyword.split(RegExp(r'[,，]'))) {
+        final t = kw.trim();
+        if (t.isNotEmpty) keywords.add(t);
+      }
+      for (final tag in (item.aiTag ?? '').split(RegExp(r'[,，]'))) {
+        final t = tag.trim();
+        if (t.isNotEmpty) keywords.add(t);
+      }
+    }
+    final hotWords = keywords.toList()..shuffle(Random(42));
+    final display = hotWords.length > 12 ? hotWords.sublist(0, 12) : hotWords;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
-        children: hotWords.map((word) {
+        children: display.map((word) {
           return ActionChip(
             label: Text(word,
                 style:

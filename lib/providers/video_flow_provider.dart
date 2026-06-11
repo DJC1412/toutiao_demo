@@ -39,6 +39,9 @@ class VideoFlowProvider extends ChangeNotifier {
   final Map<String, String> _qualityUrlCache = {};
   static const _serverBase = 'http://192.168.2.8:8080';
 
+  /// 控制预加载后是否自动起播：开屏期间 false，进入主界面后 true
+  bool allowAutoPlay = false;
+
   int _currentPageIndex = 0;
   int get currentPageIndex => _currentPageIndex;
 
@@ -179,8 +182,7 @@ class VideoFlowProvider extends ChangeNotifier {
         return;
       }
 
-      // 首帧就绪 → 自动起播
-      if (id == _activeVideoId) {
+      if (id == _activeVideoId && allowAutoPlay) {
         final ttff = entry.initializedAt!.difference(entry.preloadStart).inMilliseconds;
         developer.log(
             '🎬 [TTFF] 首帧就绪 (Time to First Frame): $id | '
