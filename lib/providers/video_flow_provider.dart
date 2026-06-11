@@ -118,7 +118,7 @@ class VideoFlowProvider extends ChangeNotifier {
     for (final idx in window) {
       final item = _items[idx];
       if (!_pool.containsKey(item.id) && item.videoUrl != null) {
-        _preloadItem(item);
+        preloadItem(item);
       }
     }
 
@@ -135,24 +135,17 @@ class VideoFlowProvider extends ChangeNotifier {
         name: 'PlayerPool');
   }
 
-  /// 异步预加载单个视频控制器
-  void _preloadItem(FeedItem item) {
+  /// 异步预加载单个视频控制器（子类可重写用于测试）
+  @visibleForTesting
+  void preloadItem(FeedItem item) {
     final id = item.id;
     developer.log('⏳ [Preload] 开始预加载: $id — "${item.title}" | url=${item.videoUrl}',
         name: 'PlayerPool');
 
-    final url = _qualityUrlCache[id] ?? item.videoUrl!;
-    final controller = url.startsWith('assets/')
-        ? VideoPlayerController.asset(url)
-        : VideoPlayerController.networkUrl(
-            Uri.parse(url),
-            videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
-          );
-
+    final controller = _createController(item);
     final entry = _PlayerEntry(controller);
     _pool[id] = entry;
 
-    // ── 持久错误监听（initialize 成功后仍可能出现运行时错误）──
     controller.addListener(() {
       if (controller.value.hasError) {
         developer.log(
@@ -200,6 +193,17 @@ class VideoFlowProvider extends ChangeNotifier {
           'stack=$stack',
           name: 'PlayerPool');
     });
+  }
+
+  @visibleForTesting
+  VideoPlayerController _createController(FeedItem item) {
+    final url = _qualityUrlCache[item.id] ?? item.videoUrl!;
+    return url.startsWith('assets/')
+        ? VideoPlayerController.asset(url)
+        : VideoPlayerController.networkUrl(
+            Uri.parse(url),
+            videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+          );
   }
 
   /// 提取原始 ID（去掉时间戳后缀）
